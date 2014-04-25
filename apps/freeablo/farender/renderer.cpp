@@ -3,6 +3,7 @@
 #include <assert.h>
 
 #include <boost/thread.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <level/level.h>
 
@@ -112,6 +113,8 @@ namespace FARender
     void Renderer::renderLoop()
     {
         Render::init();
+        
+        boost::posix_time::ptime last = boost::posix_time::microsec_clock::local_time();
 
         while(!mDone)
         {
@@ -148,6 +151,16 @@ namespace FARender
 
             if(mRenderThreadState == running && current && current->mMutex.try_lock())
             {
+                boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();  
+
+                while((size_t)(now.time_of_day().total_milliseconds() - last.time_of_day().total_milliseconds()) < 1000/60)
+                {
+                    boost::this_thread::sleep(now.time_of_day().total_milliseconds() - (last.time_of_day().total_milliseconds() + 1000/60));
+                    now = boost::posix_time::microsec_clock::local_time();
+                }
+
+                last = now;
+
                 Render::drawLevel(mLevel, current->mPos.current().first, current->mPos.current().second, 
                     current->mPos.next().first, current->mPos.next().second, current->mPos.mDist);
 
@@ -156,7 +169,7 @@ namespace FARender
                     Render::drawAt(mLevel, (*current->mObjects[i].get<0>().get()).mSpriteGroup[current->mObjects[i].get<1>()], current->mObjects[i].get<2>().current().first, current->mObjects[i].get<2>().current().second,
                         current->mObjects[i].get<2>().next().first, current->mObjects[i].get<2>().next().second, current->mObjects[i].get<2>().mDist);
                 }
-
+                
                 current->mMutex.unlock();
             }
 
